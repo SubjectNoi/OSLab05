@@ -130,7 +130,7 @@ void process_File(INODE *in, FILE *src, FILE *dest) {
     for (i = 0; i < dblock_num; i++) {
         int offset = i == 0 ? 6 : -(rfp[i - 1].data_block_idx - 1);
         fseek(src, (rfp[i].data_block_idx + offset) * block_size, SEEK_CUR);
-        fread(&wfp[i].bf, block_size, 0, src);
+        fread(&wfp[i].bf, block_size, 1, src);
         printf("%s\n", wfp[i].bf);
     }
     fseek(src, cur_file_pos, SEEK_SET);
