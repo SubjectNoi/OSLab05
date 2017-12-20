@@ -55,7 +55,7 @@ typedef struct __write_file_pos {                     // Record the content and 
 char source_file[MAX_FILE_LEN], dest_file[MAX_FILE_LEN], target[MAX_FILE_LEN];
 
 /*
- * @brief       access the inode, record iblocks offset with RFP struct 
+ * @brief       access the inode, record data blocks offset with RFP struct 
  * @param       rfp             struct used to record the iblocks offset of current file
  * @param       src             target disk image
  * @param       type            distinct the type of index, 1 for 1-index, 2 for 2-index, 3 for 3-index
