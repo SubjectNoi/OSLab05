@@ -51,19 +51,19 @@ typedef struct __write_file_pos {                     // Record the content and 
     int     global_idx;                               // Logical position of a block, used to unify the blocks into a correct file
 } WFP;
 
-//   Origin disk image          Processed disk image     Files contained by the disk  
+//   Origin disk image          Processed disk image     Files contained by the disk
 char source_file[MAX_FILE_LEN], dest_file[MAX_FILE_LEN], target[MAX_FILE_LEN];
 
 /*
- * @brief       access the inode, record data blocks offset with RFP struct 
+ * @brief       access the inode, record iblocks offset with RFP struct
  * @param       rfp             struct used to record the iblocks offset of current file
  * @param       src             target disk image
  * @param       type            distinct the type of index, 1 for 1-index, 2 for 2-index, 3 for 3-index
  * @param       iblock          used only for 1-index, distinct the start position of 1-index (iblocks[0:3])
  * @param       in              inode of current file
- * 
+ *
  * @return      NULL
- * 
+ *
  */
 void access_iblocks(RFP* rfp, FILE* src, int type, int iblock, INODE* in) {
     int     i;
@@ -76,7 +76,8 @@ void access_iblocks(RFP* rfp, FILE* src, int type, int iblock, INODE* in) {
             for (i = 0; i < index_num; i++) {
                 fread(&rfp[dblock_num].data_block_idx, sizeof(int), 1, src);
                 if (rfp[dblock_num].data_block_idx > (file_size / block_size) || rfp[dblock_num].data_block_idx <= 0) break;
-                rfp[dblock_num].global_idx = dblock_num++;
+                rfp[dblock_num].global_idx = dblock_num;
+                dblock_num++;
             }
             fseek(src, cur_file_pointer, SEEK_SET);
             break;
@@ -110,9 +111,9 @@ void access_iblocks(RFP* rfp, FILE* src, int type, int iblock, INODE* in) {
  * @param       dblock_idx      current data block offset
  * @param       iblock_idx      current index block offset
  * @param       cnt             round, used only for 1-index [0:127]
- * 
+ *
  * @return      NULL
- * 
+ *
  */
 void modify_iblocks(int file_block_num, FILE* dest, int type, int* dblock_idx, int* iblock_idx, int cnt) {
     int     i;
@@ -175,7 +176,7 @@ void modify_iblocks(int file_block_num, FILE* dest, int type, int* dblock_idx, i
  * @brief       used for qsort(), sort blocks by physical position
  * @param       a               first op
  * @param       b               second op
- * 
+ *
  * @return      int             >0 to swap, <0 don't swap
  */
 int cmp_physical(const void* a, const void* b) {
@@ -186,7 +187,7 @@ int cmp_physical(const void* a, const void* b) {
  * @brief       used for qsort(), sort blocks by logical position
  * @param       a               first op
  * @param       b               second op
- * 
+ *
  * @return      int             >0 to swap, <0 don't swap
  */
 int cmp_logical(const void* a, const void* b) {
@@ -199,10 +200,10 @@ int cmp_logical(const void* a, const void* b) {
  * @param       src             Origin disk image
  * @param       dest            target disk image
  * @param       new_file        real file of target inode
- * 
+ *
  * @return      NULL
  */
-void process_File(INODE *in, FILE *src, FILE *dest, FILE *new_file) {
+void process_File(INODE *in, FILE *src, FILE *dest,  FILE *new_file) {
     int     file_block_num = (in->size - 1) / block_size + 1;
     int     idx_block_num = (file_block_num - N_DBLOCKS) / index_num + 1;
     long    cur_file_pos;
@@ -214,7 +215,8 @@ void process_File(INODE *in, FILE *src, FILE *dest, FILE *new_file) {
     for (i = 0; i < N_DBLOCKS; i++) {
         if (in->dblocks[i]) {
             rfp[dblock_num].data_block_idx = in->dblocks[i];
-            rfp[dblock_num].global_idx = dblock_num++;
+            rfp[dblock_num].global_idx = dblock_num;
+            dblock_num++;
         }
     }
     if (file_block_num > N_DBLOCKS) {
@@ -247,7 +249,7 @@ void process_File(INODE *in, FILE *src, FILE *dest, FILE *new_file) {
     // Sort all dblocks of this file by logical position to ensure the correctness of the file
     qsort(wfp, (size_t)file_block_num, sizeof(WFP), cmp_logical);
     fseek(dest, 0, SEEK_END);
-    fseek(new_file, 0, SEEK_END);
+    //fseek(new_file, 0, SEEK_END);
     for (i = 0; i < dblock_num; i++) {
         fwrite(&wfp[i].bf, block_size, 1, dest);
         fwrite(&wfp[i].bf, block_size, 1, new_file);
@@ -261,14 +263,13 @@ void process_File(INODE *in, FILE *src, FILE *dest, FILE *new_file) {
  * @param       dest            target disk image
  * @param       dblock_idx      current data block offset
  * @param       iblock_idx      current index block offset
- * 
+ *
  * @return      NULL
  */
 void update_inodes(INODE *in, FILE *dest, int* dblock_idx, int* iblock_idx) {
     int     file_block_num = ((in->size) - 1) / block_size + 1;
     int     idx_block_num = (file_block_num - N_DBLOCKS) / index_num + 1;
     int     i;
-    long    cur_file_pointer;
 
     for (i = 0; i < N_DBLOCKS; i++) {
         if (!in->dblocks[i]) break;
@@ -299,7 +300,7 @@ void update_inodes(INODE *in, FILE *dest, int* dblock_idx, int* iblock_idx) {
  * @brief       convert integer to string
  * @param       src             integer to be converted
  * @param       buf             buffer
- * 
+ *
  * @return      NULL
  */
 void ITOA(int src, char* buf) {
@@ -358,7 +359,7 @@ int main(int argc, char* argv[]) {
     inode_num = (block_size * (((SUPER_BLOCK*)sb)->data_offset - ((SUPER_BLOCK*)sb)->inode_offset)) / sizeof(INODE);
     data_offset += ((SUPER_BLOCK*)sb)->data_offset - ((SUPER_BLOCK*)sb)->inode_offset;
     index_num = block_size / 4;
-    printf("Before: %8d Free Blocks.\n", file_size / block_size - ((SUPER_BLOCK*)sb)->free_iblock);
+    printf("Before: %8d Free Blocks.\n", (int)(file_size / block_size - ((SUPER_BLOCK*)sb)->free_iblock));
     // Read i-nodes from source file, beginning: 0 * 512 + 1024, end = 4 * 512 + 1024
     // i-nodes: [1024, 3172], 2048 - x * sizeof(INODE) < block_size, x = 20, 20 i-nodes in total
     int i;
@@ -376,14 +377,18 @@ int main(int argc, char* argv[]) {
     free(sb);
 
     // Process every i-nodes
+    INODE* In = (INODE*)malloc(sizeof(INODE));
     for (i = 0; i < inode_num; i++) {
-        ITOA(i + 1, &target);
-        FILE *tar = fopen(target, "w+");
-        INODE* in = (INODE*)malloc(sizeof(INODE));
-        fread(in, sizeof(INODE), 1, sf);
-        if (!in->nlink) continue;
+        ITOA(i + 1, (char*)&target);
+        fread(In, sizeof(INODE), 1, sf);
+        if (!In->nlink) {
+            printf("%d\n", i);
+            continue;
+        }
         else {
-            process_File(in, sf, df, tar);
+            FILE *tar = fopen(target, "w+");
+            process_File(In, sf, df, tar);
+            fclose(tar);
         }
     }
 
@@ -392,14 +397,14 @@ int main(int argc, char* argv[]) {
     int iblock_idx = block_num + 1;     // IBLOCKS are after DBLOCKS
     fseek(df, 2 * block_size, SEEK_SET);
     for (i = 0; i < inode_num; i++) {
-        INODE* in = (INODE*)malloc(sizeof(INODE));
         long cur_file_pointer = ftell(df);
-        fread(in, sizeof(INODE), 1, df);
-        if (!in->nlink) continue;
-        update_inodes(in, df, &dblock_idx, &iblock_idx);
+        fread(In, sizeof(INODE), 1, df);
+        if (!In->nlink) continue;
+        update_inodes(In, df, &dblock_idx, &iblock_idx);
         fseek(df, cur_file_pointer, SEEK_SET);
-        fwrite(in, sizeof(INODE), 1, df);
+        fwrite(In, sizeof(INODE), 1, df);
     }
+    free(In);
 
     fseek(df, (iblock_idx + data_offset) * block_size, SEEK_SET);
     void *free_block = malloc(block_size);
@@ -416,7 +421,7 @@ int main(int argc, char* argv[]) {
     new_sb->free_iblock = iblock_idx;
     fseek(df, block_size, SEEK_SET);
     fwrite(new_sb, block_size, 1, df);
-    printf("After : %8d Free Blocks.\n", file_size / block_size - new_sb->free_iblock);
+    printf("After : %8d Free Blocks.\n", (int)(file_size / block_size - new_sb->free_iblock));
     free(new_sb);
 
     fclose(sf);
